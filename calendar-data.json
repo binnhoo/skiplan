@@ -1,0 +1,17 @@
+{
+  "semester": {
+    "startDate": "2025-08-01T00:00:00.000Z",
+    "endDate": "2025-12-31T00:00:00.000Z",
+    "weekSchedule": {
+      "monday": {},
+      "tuesday": {},
+      "wednesday": {},
+      "thursday": {},
+      "friday": {},
+      "saturday": {},
+      "sunday": {}
+    }
+  },
+  "classes": [],
+  "marks": []
+}
