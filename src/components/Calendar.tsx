@@ -322,22 +322,6 @@ function Calendar() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className={`${!isCompactView ? 'lg:col-span-3 xl:col-span-3 2xl:col-span-3' : 'lg:col-span-3'} space-y-6`}>
-        <div className="flex justify-between items-center">
-          <div className="space-x-2">
-            <button
-              onClick={() => setIsCompactView(false)}
-              className={`px-3 py-1 rounded-lg ${!isCompactView ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}
-            >
-              Single Month
-            </button>
-            <button
-              onClick={() => setIsCompactView(true)}
-              className={`px-3 py-1 rounded-lg ${isCompactView ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}
-            >
-              Full Semester
-            </button>
-          </div>
-        </div>
 
         
 
@@ -364,51 +348,70 @@ function Calendar() {
         </div>
       </div>
 
-      <div className="space-y-6">
-        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h3 className="font-medium mb-3">Statistics:</h3>
-          <div className="space-y-2 text-sm">
-            <div>
-              <span className="text-gray-500">Total Class Days:</span>
-              <span className="ml-2 font-medium">{stats.totalClassDays}</span>
+      <div className="space-y-4">
+        <div className="flex flex-col space-y-2">
+          <button
+            onClick={() => setIsCompactView(false)}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${!isCompactView ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+          >
+            📅 Single Month
+          </button>
+          <button
+            onClick={() => setIsCompactView(true)}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isCompactView ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+          >
+            🗓️ Full Semester
+          </button>
+        </div>
+
+        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+          <h3 className="font-medium mb-2 text-sm">📊 Statistics</h3>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">📚 Total Days:</span>
+              <span className="font-medium">{stats.totalClassDays}</span>
             </div>
-            <div>
-              <span className="text-gray-500">Available Days:</span>
-              <span className="ml-2 font-medium">{stats.availableClassDays}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">✅ Available:</span>
+              <span className="font-medium">{stats.availableClassDays}</span>
             </div>
-            <div>
-              <span className="text-gray-500">Free Days:</span>
-              <span className="ml-2 font-medium">{stats.freeDays}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">☕ Free:</span>
+              <span className="font-medium">{stats.freeDays}</span>
             </div>
-            <div className="pt-2 border-t dark:border-gray-700">
-              <span className="text-gray-500">Total Absences:</span>
-              <span className="ml-2 font-medium">{stats.totalAbsences}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">❌ Absences:</span>
+              <span className="font-medium">{stats.totalAbsences}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h3 className="font-medium mb-3">Class Percentages:</h3>
-          <div className="space-y-4">
+        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+          <h3 className="font-medium mb-2 text-sm">📈 Class Percentages</h3>
+          <div className="space-y-3">
             {classStats.map(stat => (
-              <div key={stat.code} className="text-sm">
-                <div className="flex justify-between mb-1">
-                  <span>{stat.code} - {stat.name}</span>
+              <div key={stat.code} className="text-xs">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-medium text-xs">{stat.name}</span>
                   <div className="text-right">
-                    <span className="font-medium">{stat.remainingPercentage.toFixed(1)}%</span>
+                    <span className="font-bold text-xs">{stat.remainingPercentage.toFixed(1)}%</span>
                     <span className="text-gray-500 text-xs ml-1">(-{(100 - stat.remainingPercentage).toFixed(1)}%)</span>
                   </div>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-1">
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mb-1">
                   <div
-                    className="bg-blue-500 rounded-full h-2 transition-all duration-300"
+                    className={`rounded-full h-1.5 transition-all duration-300 ${
+                      stat.remainingPercentage >= 75 ? 'bg-green-500' :
+                      stat.remainingPercentage >= 50 ? 'bg-yellow-500' :
+                      stat.remainingPercentage >= 25 ? 'bg-orange-500' : 'bg-red-500'
+                    }`}
                     style={{ width: `${stat.remainingPercentage}%` }}
                   />
                 </div>
-                <div className="text-xs text-gray-500 space-y-1">
-                  <div>Weight per class: {stat.weight}%</div>
-                  <div>Total class days: {stat.totalDays}</div>
-                  <div>Absences: {stat.absenceCount} | Free: {stat.freeCount}</div>
+                <div className="text-xs text-gray-500 flex justify-between">
+                  <span>⚖️ {stat.weight}%</span>
+                  <span>📅 {stat.totalDays}</span>
+                  <span>❌ {stat.absenceCount} ☕ {stat.freeCount}</span>
                 </div>
               </div>
             ))}
