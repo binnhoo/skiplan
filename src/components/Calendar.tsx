@@ -40,7 +40,6 @@ function Calendar() {
   const monthsInRange = getMonthsInRange();
 
   useEffect(() => {
-
     const today = new Date();
     const start = new Date(state.semester.startDate);
     const end = new Date(state.semester.endDate);
@@ -51,6 +50,44 @@ function Calendar() {
       setCurrentDate(start);
     }
   }, [state.semester.startDate, state.semester.endDate]);
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    if (direction === 'prev') {
+      newDate.setMonth(newDate.getMonth() - 1);
+    } else {
+      newDate.setMonth(newDate.getMonth() + 1);
+    }
+    
+    // Ensure we stay within semester bounds
+    const start = new Date(state.semester.startDate);
+    const end = new Date(state.semester.endDate);
+    
+    // Set to first day of month for comparison
+    const firstOfNewMonth = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+    const firstOfStart = new Date(start.getFullYear(), start.getMonth(), 1);
+    const firstOfEnd = new Date(end.getFullYear(), end.getMonth(), 1);
+    
+    if (firstOfNewMonth >= firstOfStart && firstOfNewMonth <= firstOfEnd) {
+      setCurrentDate(newDate);
+    }
+  };
+
+  const canNavigatePrev = () => {
+    const prevMonth = new Date(currentDate);
+    prevMonth.setMonth(prevMonth.getMonth() - 1);
+    const firstOfPrevMonth = new Date(prevMonth.getFullYear(), prevMonth.getMonth(), 1);
+    const firstOfStart = new Date(new Date(state.semester.startDate).getFullYear(), new Date(state.semester.startDate).getMonth(), 1);
+    return firstOfPrevMonth >= firstOfStart;
+  };
+
+  const canNavigateNext = () => {
+    const nextMonth = new Date(currentDate);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const firstOfNextMonth = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1);
+    const firstOfEnd = new Date(new Date(state.semester.endDate).getFullYear(), new Date(state.semester.endDate).getMonth(), 1);
+    return firstOfNextMonth <= firstOfEnd;
+  };
 
   const isWithinSemester = (date: Date) => {
     return date >= startDate && date <= endDate;
@@ -284,9 +321,12 @@ function Calendar() {
 
     return (
       <div key={date.toISOString()} className={`${isCompactView ? 'text-sm' : ''}`}>
-        <h3 className="text-lg font-semibold mb-2">
-          {MONTHS[date.getMonth()]} {date.getFullYear()}
-        </h3>
+        {/* Only show month title in compact view, since single view has navigation header */}
+        {isCompactView && (
+          <h3 className="text-lg font-semibold mb-2">
+            {MONTHS[date.getMonth()]} {date.getFullYear()}
+          </h3>
+        )}
         <div className={`grid grid-cols-7 gap-1 ${!isCompactView ? 'text-lg' : ''}`}>
           {DAYS.map(day => (
             <div key={day} className="text-center py-1 text-sm font-medium">
@@ -324,6 +364,41 @@ function Calendar() {
       <div className={`${!isCompactView ? 'lg:col-span-3 xl:col-span-3 2xl:col-span-3' : 'lg:col-span-3'} space-y-6`}>
 
         
+
+        {/* Month Navigation - only show in single month view */}
+        {!isCompactView && (
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => navigateMonth('prev')}
+              disabled={!canNavigatePrev()}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                canNavigatePrev()
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              ← Previous Month
+            </button>
+            
+            <div className="text-center">
+              <h2 className="text-xl font-bold">
+                {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </h2>
+            </div>
+            
+            <button
+              onClick={() => navigateMonth('next')}
+              disabled={!canNavigateNext()}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                canNavigateNext()
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              Next Month →
+            </button>
+          </div>
+        )}
 
         <div className={`grid gap-6 ${isCompactView ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
           {isCompactView
@@ -401,9 +476,9 @@ function Calendar() {
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mb-1">
                   <div
                     className={`rounded-full h-1.5 transition-all duration-300 ${
-                      stat.remainingPercentage >= 75 ? 'bg-green-500' :
-                      stat.remainingPercentage >= 50 ? 'bg-yellow-500' :
-                      stat.remainingPercentage >= 25 ? 'bg-orange-500' : 'bg-red-500'
+                      stat.remainingPercentage > (state.semester.percentageColors?.caution || 85) ? 'bg-green-500' :
+                      stat.remainingPercentage > (state.semester.percentageColors?.minimum || 75) ? 'bg-yellow-500' :
+                      'bg-red-500'
                     }`}
                     style={{ width: `${stat.remainingPercentage}%` }}
                   />

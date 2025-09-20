@@ -45,6 +45,10 @@ const defaultState: CalendarState = {
   semester: {
     ...getDefaultSemesterDates(),
     weekSchedule: defaultWeekSchedule,
+    percentageColors: {
+      minimum: 75,
+      caution: 85,
+    },
   },
   classes: [],
   marks: [],

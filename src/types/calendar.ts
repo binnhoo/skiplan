@@ -31,10 +31,16 @@ export interface DayMark {
   allDayFree?: boolean; // Option to mark entire day as free/no class
 }
 
+export interface PercentageColorConfig {
+  minimum: number; // Percentage below which shows red (e.g., 75)
+  caution: number; // Percentage below which shows yellow (e.g., 85)
+}
+
 export interface SemesterConfig {
   startDate: string; // ISO date string
   endDate: string; // ISO date string
   weekSchedule: WeekSchedule;
+  percentageColors?: PercentageColorConfig;
 }
 
 export interface CalendarState {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { CalendarState, SemesterConfig, WeekSchedule, Class, DayMark, ClassMark } from '../types/calendar';
+import { CalendarState, SemesterConfig, WeekSchedule, Class, DayMark, ClassMark, PercentageColorConfig } from '../types/calendar';
 import { storageService } from '../services/storageService';
 
 type CalendarContextType = {
@@ -9,6 +9,8 @@ type CalendarContextType = {
   addClass: (newClass: Class) => void;
   removeClass: (code: string) => void;
   updateDayMark: (date: string, classMarks: ClassMark[], allDayFree: boolean) => void;
+  updatePercentageColors: (config: PercentageColorConfig) => void;
+  resetAllDayMarks: () => void;
   refreshState: () => void;
 };
 
@@ -58,12 +60,19 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
       }
     });
     
+    // Add default percentage color configuration if not present
+    const defaultPercentageColors: PercentageColorConfig = {
+      minimum: 75,
+      caution: 85
+    };
+
     const migratedState = {
       ...loadedState,
       marks: migratedMarks,
       semester: {
         ...loadedState.semester,
-        weekSchedule: migratedSchedule
+        weekSchedule: migratedSchedule,
+        percentageColors: loadedState.semester.percentageColors || defaultPercentageColors
       }
     };
     
@@ -73,7 +82,8 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
                           const oldMark = (loadedState.marks || [])[index];
                           return !oldMark || ('type' in oldMark);
                         });
-    if (marksChanged || scheduleChanged) {
+    const percentageColorsChanged = !loadedState.semester.percentageColors;
+    if (marksChanged || scheduleChanged || percentageColorsChanged) {
       storageService.setState(migratedState);
     }
     
@@ -173,6 +183,27 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
     setState(newState);
   };
 
+  const updatePercentageColors = (config: PercentageColorConfig) => {
+    const newState = {
+      ...state,
+      semester: {
+        ...state.semester,
+        percentageColors: config,
+      },
+    };
+    storageService.setState(newState);
+    setState(newState);
+  };
+
+  const resetAllDayMarks = () => {
+    const newState = {
+      ...state,
+      marks: [], // Clear all day marks, making everything regular
+    };
+    storageService.setState(newState);
+    setState(newState);
+  };
+
   const refreshState = () => {
     const newState = storageService.getState();
     setState(newState);
@@ -185,6 +216,8 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
     addClass,
     removeClass,
     updateDayMark,
+    updatePercentageColors,
+    resetAllDayMarks,
     refreshState,
   };
 
