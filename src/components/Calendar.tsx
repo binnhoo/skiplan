@@ -61,21 +61,19 @@ function Calendar() {
   const isClassDay = (date: Date) => {
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as keyof WeekSchedule;
     const schedule = state.semester.weekSchedule[dayName];
-    return Boolean(schedule.morning || schedule.afternoon);
+    return Boolean(schedule.classes && schedule.classes.length > 0);
   };
 
   const getClassesForDay = (date: Date) => {
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as keyof WeekSchedule;
     const schedule = state.semester.weekSchedule[dayName];
-    const classes = [];
+    const classes: typeof state.classes = [];
     
-    if (schedule.morning) {
-      const morningClass = state.classes.find(c => c.code === schedule.morning);
-      if (morningClass) classes.push(morningClass);
-    }
-    if (schedule.afternoon) {
-      const afternoonClass = state.classes.find(c => c.code === schedule.afternoon);
-      if (afternoonClass) classes.push(afternoonClass);
+    if (schedule.classes) {
+      schedule.classes.forEach(classCode => {
+        const classObj = state.classes.find(c => c.code === classCode);
+        if (classObj) classes.push(classObj);
+      });
     }
     
     return classes;

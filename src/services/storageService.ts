@@ -4,13 +4,13 @@ import defaultDataFile from '../../calendar-data.json';
 const STORAGE_KEY = 'calendar-data';
 
 const defaultWeekSchedule: WeekSchedule = {
-  monday: {},
-  tuesday: {},
-  wednesday: {},
-  thursday: {},
-  friday: {},
-  saturday: {},
-  sunday: {},
+  monday: { classes: [] },
+  tuesday: { classes: [] },
+  wednesday: { classes: [] },
+  thursday: { classes: [] },
+  friday: { classes: [] },
+  saturday: { classes: [] },
+  sunday: { classes: [] },
 };
 
 function getDefaultSemesterDates(): { startDate: string; endDate: string } {

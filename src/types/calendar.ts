@@ -5,8 +5,7 @@ export interface Class {
 }
 
 export interface DaySchedule {
-  morning?: string;
-  afternoon?: string;
+  classes: string[]; // Array of class codes
 }
 
 export interface WeekSchedule {

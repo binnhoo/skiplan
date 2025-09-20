@@ -5,7 +5,7 @@ import { storageService } from '../services/storageService';
 type CalendarContextType = {
   state: CalendarState;
   updateSemester: (semester: SemesterConfig) => void;
-  updateSchedule: (day: keyof WeekSchedule, period: 'morning' | 'afternoon', classCode: string | undefined) => void;
+  updateDaySchedule: (day: keyof WeekSchedule, classes: string[]) => void;
   addClass: (newClass: Class) => void;
   removeClass: (code: string) => void;
   updateMarks: (marks: DayMark[]) => void;
@@ -28,13 +28,39 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
       type: mark.type === 'simulated' ? 'absence' : mark.type
     }));
     
+    // Migrate old schedule format (morning/afternoon) to new format (classes array)
+    const migratedSchedule: WeekSchedule = {} as WeekSchedule;
+    let scheduleChanged = false;
+    
+    Object.entries(loadedState.semester.weekSchedule).forEach(([day, schedule]) => {
+      const dayKey = day as keyof WeekSchedule;
+      
+      // Check if it's the old format with morning/afternoon
+      if ('morning' in schedule || 'afternoon' in schedule) {
+        const classes: string[] = [];
+        if ((schedule as any).morning) classes.push((schedule as any).morning);
+        if ((schedule as any).afternoon) classes.push((schedule as any).afternoon);
+        
+        migratedSchedule[dayKey] = { classes };
+        scheduleChanged = true;
+      } else {
+        // Already in new format or empty
+        migratedSchedule[dayKey] = schedule.classes ? schedule : { classes: [] };
+      }
+    });
+    
     const migratedState = {
       ...loadedState,
-      marks: migratedMarks
+      marks: migratedMarks,
+      semester: {
+        ...loadedState.semester,
+        weekSchedule: migratedSchedule
+      }
     };
     
     // Save the migrated state if there were changes
-    if (migratedMarks.some((mark, index) => mark.type !== (loadedState.marks || [])[index]?.type)) {
+    const marksChanged = migratedMarks.some((mark, index) => mark.type !== (loadedState.marks || [])[index]?.type);
+    if (marksChanged || scheduleChanged) {
       storageService.setState(migratedState);
     }
     
@@ -50,12 +76,11 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
     setState(newState);
   };
 
-  const updateSchedule = (day: keyof WeekSchedule, period: 'morning' | 'afternoon', classCode: string | undefined) => {
+  const updateDaySchedule = (day: keyof WeekSchedule, classes: string[]) => {
     const updatedSchedule = {
       ...state.semester.weekSchedule,
       [day]: {
-        ...state.semester.weekSchedule[day],
-        [period]: classCode,
+        classes: [...classes],
       },
     };
 
@@ -82,22 +107,15 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
   };
 
   const removeClass = (code: string) => {
-    const updatedSchedule: WeekSchedule = {
-      ...state.semester.weekSchedule,
-      monday: { ...state.semester.weekSchedule.monday },
-      tuesday: { ...state.semester.weekSchedule.tuesday },
-      wednesday: { ...state.semester.weekSchedule.wednesday },
-      thursday: { ...state.semester.weekSchedule.thursday },
-      friday: { ...state.semester.weekSchedule.friday },
-      saturday: { ...state.semester.weekSchedule.saturday },
-      sunday: { ...state.semester.weekSchedule.sunday },
-    };
+    const updatedSchedule: WeekSchedule = {} as WeekSchedule;
 
     // Remove class from all days
-    Object.keys(updatedSchedule).forEach(day => {
-      const schedule = updatedSchedule[day as keyof WeekSchedule];
-      if (schedule.morning === code) schedule.morning = undefined;
-      if (schedule.afternoon === code) schedule.afternoon = undefined;
+    Object.keys(state.semester.weekSchedule).forEach(day => {
+      const dayKey = day as keyof WeekSchedule;
+      const schedule = state.semester.weekSchedule[dayKey];
+      updatedSchedule[dayKey] = {
+        classes: schedule.classes.filter(classCode => classCode !== code)
+      };
     });
 
     const newState = {
@@ -129,7 +147,7 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
   const contextValue: CalendarContextType = {
     state,
     updateSemester,
-    updateSchedule,
+    updateDaySchedule,
     addClass,
     removeClass,
     updateMarks,
