@@ -84,7 +84,15 @@ function Calendar() {
   const getDayMark = (date: Date): DayType => {
     const marks = state.marks || [];
     const mark = marks.find(m => new Date(m.date).toDateString() === date.toDateString());
-    return mark?.type || 'regular';
+    const storedType = mark?.type || 'regular';
+    
+    // If stored as 'absence' but date is in future, display as 'simulated'
+    if (storedType === 'absence') {
+      const now = new Date();
+      return date > now ? 'simulated' : 'absence';
+    }
+    
+    return storedType;
   };
 
   const handleDayClick = (date: Date) => {
@@ -92,14 +100,13 @@ function Calendar() {
 
     const currentMark = getDayMark(date);
     let newType: DayType = 'regular';
-    const now = new Date();
 
     switch (currentMark) {
       case 'regular':
         newType = 'holiday';
         break;
       case 'holiday':
-        newType = date <= now ? 'absence' : 'simulated';
+        newType = 'absence'; // Always store as 'absence', display logic handles past/future
         break;
       case 'absence':
       case 'simulated':
@@ -219,11 +226,14 @@ function Calendar() {
     if (!isWithinSemester(date)) return 'text-gray-400';
 
     const isClass = isClassDay(date);
-    if (!isClass) return 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed';
+    const todayClasses = isToday(date) ? 'ring-2 ring-blue-500 ring-inset' : '';
+    
+    if (!isClass) {
+      return `bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed ${todayClasses}`;
+    }
 
     const mark = getDayMark(date);
     const baseClasses = 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 relative';
-    const todayClasses = isToday(date) ? 'ring-2 ring-blue-500 ring-inset' : '';
     
     switch (mark) {
       case 'holiday':

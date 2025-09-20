@@ -21,7 +21,24 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
 
   useEffect(() => {
     const loadedState = storageService.getState();
-    setState(loadedState);
+    
+    // Migrate any existing 'simulated' marks to 'absence' marks
+    const migratedMarks = (loadedState.marks || []).map(mark => ({
+      ...mark,
+      type: mark.type === 'simulated' ? 'absence' : mark.type
+    }));
+    
+    const migratedState = {
+      ...loadedState,
+      marks: migratedMarks
+    };
+    
+    // Save the migrated state if there were changes
+    if (migratedMarks.some((mark, index) => mark.type !== (loadedState.marks || [])[index]?.type)) {
+      storageService.setState(migratedState);
+    }
+    
+    setState(migratedState);
   }, []);
 
   const updateSemester = (semester: SemesterConfig) => {
