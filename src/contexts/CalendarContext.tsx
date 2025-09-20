@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { CalendarState, SemesterConfig, WeekSchedule, Class, DayMark } from '../types/calendar';
+import { CalendarState, SemesterConfig, WeekSchedule, Class, DayMark, ClassMark } from '../types/calendar';
 import { storageService } from '../services/storageService';
 
 type CalendarContextType = {
@@ -8,7 +8,7 @@ type CalendarContextType = {
   updateDaySchedule: (day: keyof WeekSchedule, classes: string[]) => void;
   addClass: (newClass: Class) => void;
   removeClass: (code: string) => void;
-  updateMarks: (marks: DayMark[]) => void;
+  updateDayMark: (date: string, classMarks: ClassMark[], allDayFree: boolean) => void;
   refreshState: () => void;
 };
 
@@ -22,11 +22,20 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
   useEffect(() => {
     const loadedState = storageService.getState();
     
-    // Migrate any existing 'simulated' marks to 'absence' marks
-    const migratedMarks = (loadedState.marks || []).map(mark => ({
-      ...mark,
-      type: mark.type === 'simulated' ? 'absence' : mark.type
-    }));
+    // Migrate old mark format to new format
+    const migratedMarks: DayMark[] = (loadedState.marks || []).map(mark => {
+      // Check if it's the old format
+      if ('type' in mark && typeof mark.type === 'string') {
+        const oldMark = mark as any;
+        return {
+          date: mark.date,
+          classMarks: [],
+          allDayFree: oldMark.type === 'holiday' || oldMark.type === 'free'
+        } as DayMark;
+      }
+      // Already in new format
+      return mark as DayMark;
+    });
     
     // Migrate old schedule format (morning/afternoon) to new format (classes array)
     const migratedSchedule: WeekSchedule = {} as WeekSchedule;
@@ -59,7 +68,11 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
     };
     
     // Save the migrated state if there were changes
-    const marksChanged = migratedMarks.some((mark, index) => mark.type !== (loadedState.marks || [])[index]?.type);
+    const marksChanged = migratedMarks.length !== (loadedState.marks || []).length || 
+                        migratedMarks.some((_, index) => {
+                          const oldMark = (loadedState.marks || [])[index];
+                          return !oldMark || ('type' in oldMark);
+                        });
     if (marksChanged || scheduleChanged) {
       storageService.setState(migratedState);
     }
@@ -130,10 +143,31 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
     setState(newState);
   };
 
-  const updateMarks = (marks: DayMark[]) => {
+  const updateDayMark = (date: string, classMarks: ClassMark[], allDayFree: boolean) => {
+    const marks = [...(state.marks || [])];
+    const existingMarkIndex = marks.findIndex(m => m.date === date);
+    
+    const newMark: DayMark = {
+      date,
+      classMarks,
+      allDayFree
+    };
+    
+    if (existingMarkIndex >= 0) {
+      marks[existingMarkIndex] = newMark;
+    } else {
+      marks.push(newMark);
+    }
+    
+    // Remove mark if it's all regular and not all day free
+    const filteredMarks = marks.filter(mark => {
+      return mark.allDayFree || 
+             (mark.classMarks && mark.classMarks.some(cm => cm.status !== 'regular'));
+    });
+    
     const newState = {
       ...state,
-      marks,
+      marks: filteredMarks,
     };
     storageService.setState(newState);
     setState(newState);
@@ -150,7 +184,7 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
     updateDaySchedule,
     addClass,
     removeClass,
-    updateMarks,
+    updateDayMark,
     refreshState,
   };
 

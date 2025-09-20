@@ -18,11 +18,17 @@ export interface WeekSchedule {
   sunday: DaySchedule;
 }
 
-export type DayType = 'holiday' | 'absence' | 'simulated' | 'regular';
+export type ClassStatus = 'free' | 'absence' | 'regular';
+
+export interface ClassMark {
+  classCode: string;
+  status: ClassStatus;
+}
 
 export interface DayMark {
-  type: DayType;
   date: string; // ISO date string
+  classMarks: ClassMark[]; // Individual status for each class
+  allDayFree?: boolean; // Option to mark entire day as free/no class
 }
 
 export interface SemesterConfig {

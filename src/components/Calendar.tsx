@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCalendar } from '../contexts/CalendarContext';
-import { DayType, WeekSchedule } from '../types/calendar';
+import { WeekSchedule, ClassStatus, ClassMark } from '../types/calendar';
+import { DayManagementModal } from './DayManagementModal';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -10,7 +11,9 @@ const MONTHS = [
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function Calendar() {
-  const { state, updateMarks } = useCalendar();
+  const { state, updateDayMark } = useCalendar();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const [isCompactView, setIsCompactView] = useState(true);
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -79,91 +82,73 @@ function Calendar() {
     return classes;
   };
 
-  const getDayMark = (date: Date): DayType => {
+  const getDayMark = (date: Date) => {
     const marks = state.marks || [];
     const mark = marks.find(m => new Date(m.date).toDateString() === date.toDateString());
-    const storedType = mark?.type || 'regular';
+    return mark || { date: date.toISOString(), classMarks: [], allDayFree: false };
+  };
+
+  const getClassStatus = (date: Date, classCode: string): ClassStatus => {
+    const dayMark = getDayMark(date);
+    if (dayMark.allDayFree) return 'free';
     
-    // If stored as 'absence' but date is in future, display as 'simulated'
-    if (storedType === 'absence') {
-      const now = new Date();
-      return date > now ? 'simulated' : 'absence';
-    }
-    
-    return storedType;
+    const classMark = dayMark.classMarks?.find(cm => cm.classCode === classCode);
+    return classMark?.status || 'regular';
   };
 
   const handleDayClick = (date: Date) => {
     if (!isWithinSemester(date) || !isClassDay(date)) return;
 
-    const currentMark = getDayMark(date);
-    let newType: DayType = 'regular';
+    setSelectedDate(date);
+    setModalOpen(true);
+  };
 
-    switch (currentMark) {
-      case 'regular':
-        newType = 'holiday';
-        break;
-      case 'holiday':
-        newType = 'absence'; // Always store as 'absence', display logic handles past/future
-        break;
-      case 'absence':
-      case 'simulated':
-        newType = 'regular';
-        break;
+  const handleSaveDayMark = (classMarks: ClassMark[], allDayFree: boolean) => {
+    if (selectedDate) {
+      updateDayMark(selectedDate.toISOString(), classMarks, allDayFree);
     }
-
-    const marks = [...(state.marks || [])];
-    const filteredMarks = marks.filter(m => new Date(m.date).toDateString() !== date.toDateString());
-    
-    if (newType !== 'regular') {
-      filteredMarks.push({ type: newType, date: date.toISOString() });
-    }
-
-    updateMarks(filteredMarks);
   };
 
   const calculateStats = () => {
     const now = new Date();
-    let totalDays = 0;
-    let availableDays = 0;
-    let holidays = 0;
-    let absences = 0;
-    let simulated = 0;
+    let totalClassDays = 0;
+    let availableClassDays = 0;
+    let freeDays = 0;
+    let totalAbsences = 0;
     let current = new Date(startDate);
 
     while (current <= endDate) {
       if (isClassDay(current)) {
-        const mark = getDayMark(current);
-        switch (mark) {
-          case 'holiday':
-            holidays++;
-            break;
-          case 'absence':
-            absences++;
-            totalDays++;
-            break;
-          case 'simulated':
-            simulated++;
-            totalDays++;
-            break;
-          case 'regular':
-            totalDays++;
-            if (current >= now) {
-              availableDays++;
+        const dayMark = getDayMark(current);
+        const dayClasses = getClassesForDay(current);
+        
+        if (dayMark.allDayFree) {
+          freeDays++;
+        } else {
+          dayClasses.forEach(cls => {
+            const status = getClassStatus(current, cls.code);
+            totalClassDays++;
+            
+            if (status === 'absence') {
+              totalAbsences++;
+            } else if (status === 'free') {
+              // Individual class marked as free
+            } else if (status === 'regular') {
+              if (current >= now) {
+                availableClassDays++;
+              }
             }
-            break;
+          });
         }
       }
       current.setDate(current.getDate() + 1);
     }
 
     return { 
-      totalDays, 
-      availableDays,
-      holidays,
-      absences,
-      simulated,
-      totalAbsences: absences + simulated
+      totalClassDays, 
+      availableClassDays,
+      freeDays,
+      totalAbsences
     };
   };
 
@@ -172,22 +157,29 @@ function Calendar() {
       .map(cls => {
         let remainingPercentage = 100;
         let absenceCount = 0;
-        let simulatedCount = 0;
+        let freeCount = 0;
         let totalDays = 0;
         let current = new Date(startDate);
 
         while (current <= endDate) {
-          const mark = getDayMark(current);
+          const dayMark = getDayMark(current);
           const hasClass = getClassesForDay(current).some(c => c.code === cls.code);
           
-          if (hasClass && mark !== 'holiday') {
+          if (hasClass) {
             totalDays++;
-            if (mark === 'absence') {
-              remainingPercentage -= cls.weight;
-              absenceCount++;
-            } else if (mark === 'simulated') {
-              remainingPercentage -= cls.weight;
-              simulatedCount++;
+            
+            if (dayMark.allDayFree) {
+              // Entire day marked as free - don't count against percentage
+              freeCount++;
+            } else {
+              const classStatus = getClassStatus(current, cls.code);
+              if (classStatus === 'absence') {
+                remainingPercentage -= cls.weight;
+                absenceCount++;
+              } else if (classStatus === 'free') {
+                // Individual class marked as free - don't count against percentage
+                freeCount++;
+              }
             }
           }
           current.setDate(current.getDate() + 1);
@@ -199,7 +191,7 @@ function Calendar() {
           weight: cls.weight,
           remainingPercentage: Math.max(0, remainingPercentage),
           absenceCount,
-          simulatedCount,
+          freeCount,
           totalDays,
         };
       })
@@ -230,19 +222,60 @@ function Calendar() {
       return `bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed ${todayClasses}`;
     }
 
-    const mark = getDayMark(date);
-    const baseClasses = 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 relative';
+    const baseClasses = 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 relative overflow-hidden';
+    return `${baseClasses} ${todayClasses}`;
+  };
+
+  const getDayBackgroundStyle = (date: Date) => {
+    if (!isClassDay(date)) return {};
     
-    switch (mark) {
-      case 'holiday':
-        return `${baseClasses} ${todayClasses} bg-green-100 dark:bg-green-900`;
-      case 'absence':
-        return `${baseClasses} ${todayClasses} bg-red-100 dark:bg-red-900`;
-      case 'simulated':
-        return `${baseClasses} ${todayClasses} bg-yellow-100 dark:bg-yellow-900`;
-      default:
-        return `${baseClasses} ${todayClasses}`;
+    const dayMark = getDayMark(date);
+    if (dayMark.allDayFree) {
+      return { backgroundColor: 'rgb(34, 197, 94)' }; // Green for all day free
     }
+    
+    const dayClasses = getClassesForDay(date);
+    if (dayClasses.length === 0) return {};
+    
+    const classStatuses = dayClasses.map(cls => getClassStatus(date, cls.code));
+    const freeCount = classStatuses.filter(s => s === 'free').length;
+    const absenceCount = classStatuses.filter(s => s === 'absence').length;
+    const regularCount = classStatuses.filter(s => s === 'regular').length;
+    
+    if (absenceCount === dayClasses.length) {
+      return { backgroundColor: 'rgb(239, 68, 68)' }; // All red for all absence
+    }
+    
+    if (freeCount === dayClasses.length) {
+      return { backgroundColor: 'rgb(34, 197, 94)' }; // All green for all free
+    }
+    
+    if (regularCount === dayClasses.length) {
+      return {}; // No background for all regular
+    }
+    
+    // Mixed states - create gradient
+    const colors = [];
+    let currentPercentage = 0;
+    
+    if (regularCount > 0) {
+      const endPercentage = currentPercentage + (regularCount / dayClasses.length) * 100;
+      colors.push(`transparent ${currentPercentage}%, transparent ${endPercentage}%`);
+      currentPercentage = endPercentage;
+    }
+    if (freeCount > 0) {
+      const endPercentage = currentPercentage + (freeCount / dayClasses.length) * 100;
+      colors.push(`rgb(34, 197, 94) ${currentPercentage}%, rgb(34, 197, 94) ${endPercentage}%`);
+      currentPercentage = endPercentage;
+    }
+    if (absenceCount > 0) {
+      const endPercentage = currentPercentage + (absenceCount / dayClasses.length) * 100;
+      colors.push(`rgb(239, 68, 68) ${currentPercentage}%, rgb(239, 68, 68) ${endPercentage}%`);
+    }
+    
+    return {
+      background: `linear-gradient(45deg, ${colors.join(', ')})`
+    };
   };
 
   const renderMonth = (date: Date) => {
@@ -272,6 +305,7 @@ function Calendar() {
                 key={day}
                 onClick={() => handleDayClick(currentDate)}
                 className={`${!isCompactView ? 'p-4' : 'p-2'} text-center ${getDayClasses(currentDate, true)}`}
+                style={getDayBackgroundStyle(currentDate)}
               >
                 {day}
               </div>
@@ -316,20 +350,16 @@ function Calendar() {
 
         <div className="flex space-x-4 text-sm">
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-green-100 dark:bg-green-900 mr-2" />
-            Holiday
+            <div className="w-4 h-4 bg-green-500 mr-2" />
+            Free/No Class
           </div>
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-red-100 dark:bg-red-900 mr-2" />
+            <div className="w-4 h-4 bg-red-500 mr-2" />
             Absence
           </div>
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-yellow-100 dark:bg-yellow-900 mr-2" />
-            Simulated
-          </div>
-          <div className="flex items-center">
             <div className="w-4 h-4 bg-gray-100 dark:bg-gray-800 mr-2" />
-            No Class
+            No Schedule
           </div>
         </div>
       </div>
@@ -340,23 +370,15 @@ function Calendar() {
           <div className="space-y-2 text-sm">
             <div>
               <span className="text-gray-500">Total Class Days:</span>
-              <span className="ml-2 font-medium">{stats.totalDays}</span>
+              <span className="ml-2 font-medium">{stats.totalClassDays}</span>
             </div>
             <div>
               <span className="text-gray-500">Available Days:</span>
-              <span className="ml-2 font-medium">{stats.availableDays}</span>
+              <span className="ml-2 font-medium">{stats.availableClassDays}</span>
             </div>
             <div>
-              <span className="text-gray-500">Holidays:</span>
-              <span className="ml-2 font-medium">{stats.holidays}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Absences:</span>
-              <span className="ml-2 font-medium">{stats.absences}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Simulated:</span>
-              <span className="ml-2 font-medium">{stats.simulated}</span>
+              <span className="text-gray-500">Free Days:</span>
+              <span className="ml-2 font-medium">{stats.freeDays}</span>
             </div>
             <div className="pt-2 border-t dark:border-gray-700">
               <span className="text-gray-500">Total Absences:</span>
@@ -386,13 +408,23 @@ function Calendar() {
                 <div className="text-xs text-gray-500 space-y-1">
                   <div>Weight per class: {stat.weight}%</div>
                   <div>Total class days: {stat.totalDays}</div>
-                  <div>Absences: {stat.absenceCount} | Simulated: {stat.simulatedCount}</div>
+                  <div>Absences: {stat.absenceCount} | Free: {stat.freeCount}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      <DayManagementModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={handleSaveDayMark}
+        date={selectedDate}
+        dayClasses={selectedDate ? getClassesForDay(selectedDate) : []}
+        currentClassMarks={selectedDate ? getDayMark(selectedDate).classMarks || [] : []}
+        currentAllDayFree={selectedDate ? getDayMark(selectedDate).allDayFree || false : false}
+      />
     </div>
   );
 }
