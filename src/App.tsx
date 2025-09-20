@@ -6,6 +6,7 @@ import Calendar from './components/Calendar';
 import { ClassManager } from './components/ClassManager';
 import { WeeklySchedule } from './components/WeeklySchedule';
 import { SemesterConfig } from './components/SemesterConfig';
+import { ConfigManager } from './components/ConfigManager';
 import { TabType } from './types/calendar';
 
 function App() {
@@ -41,6 +42,10 @@ function App() {
             </button>
           </div>
         </header>
+
+        <div className="container mx-auto max-w-6xl px-4 py-2">
+          <ConfigManager />
+        </div>
 
         <main className="container mx-auto max-w-6xl p-4">
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />

@@ -1,4 +1,4 @@
-import type { CalendarState, SemesterConfig, WeekSchedule, Class, DayMark } from '../types/calendar';
+import type { CalendarState, WeekSchedule } from '../types/calendar';
 import defaultDataFile from '../../calendar-data.json';
 
 const STORAGE_KEY = 'calendar-data';

@@ -9,6 +9,7 @@ type CalendarContextType = {
   addClass: (newClass: Class) => void;
   removeClass: (code: string) => void;
   updateMarks: (marks: DayMark[]) => void;
+  refreshState: () => void;
 };
 
 const CalendarContext = createContext<CalendarContextType | undefined>(undefined);
@@ -103,6 +104,11 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
     setState(newState);
   };
 
+  const refreshState = () => {
+    const newState = storageService.getState();
+    setState(newState);
+  };
+
   const contextValue: CalendarContextType = {
     state,
     updateSemester,
@@ -110,6 +116,7 @@ export const CalendarProvider = ({ children }: { children: React.ReactNode }) =>
     addClass,
     removeClass,
     updateMarks,
+    refreshState,
   };
 
   return (
